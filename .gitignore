@@ -1,0 +1,24 @@
+# Build directories
+build/
+bin/
+*.dir/
+
+# IDE / Editor
+.vs/
+.vscode/
+*.sln
+*.vcxproj*
+*.user
+*.suo
+x64/
+Debug/
+Release/
+
+# OS specific
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Zip releases
+*.zip
+dist/
