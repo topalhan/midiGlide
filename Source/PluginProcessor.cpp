@@ -5,6 +5,8 @@ MidiMonitorAudioProcessor::MidiMonitorAudioProcessor()
     : AudioProcessor (BusesProperties()
         .withOutput ("Output", juce::AudioChannelSet::stereo(), true))
 {
+    portamentoProcessor.setMicrotuningProcessor (&microtuningProcessor);
+    portamentoProcessor.setBreathRemapProcessor (&breathRemapProcessor);
 }
 
 MidiMonitorAudioProcessor::~MidiMonitorAudioProcessor()
@@ -65,11 +67,13 @@ void MidiMonitorAudioProcessor::prepareToPlay (double sampleRate, int /*samplesP
     midiInQueue.reset();
     midiOutQueue.reset();
     portamentoProcessor.prepareToPlay (sampleRate);
+    breathRemapProcessor.prepareToPlay (sampleRate);
 }
 
 void MidiMonitorAudioProcessor::releaseResources()
 {
     portamentoProcessor.reset();
+    breathRemapProcessor.reset();
 }
 
 bool MidiMonitorAudioProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
@@ -85,7 +89,7 @@ void MidiMonitorAudioProcessor::processBlock (juce::AudioBuffer<float>& buffer, 
 {
     juce::ScopedNoDenormals noDenormals;
 
-    // Clear output audio so MidiScope produces silence
+    // Clear output audio so MidiGlide produces silence
     buffer.clear();
 
     auto* playHead = getPlayHead();

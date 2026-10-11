@@ -43,10 +43,48 @@ In addition to its expressive glide engine, MidiGlide features dual real-time pa
 - **MIDI CC #5 (Portamento Time)**: Dynamically scale glide speed in real time.
 - **RPN 0,0 Sender**: One-click broadcast of MIDI Registered Parameter Number 0,0 (Pitch Bend Sensitivity) across all 16 MIDI channels to match synth pitch bend ranges (2, 12, 24, 48 semitones).
 
-### 🔍 4. Real-Time MIDI Diagnostics & Scope
+### 🇹🇷 4. Turkish Makam Microtuning Engine (Pitchbend Microtonality)
+- **10 Major Turkish Makams**:
+  - **1. Rast**: Segâh (3rd degree -1 koma) & Eviç (7th degree -1 koma).
+  - **2. Uşşak**: Characteristic poignant Segâh (2nd degree ~2–3 komas flat).
+  - **3. Hicaz**: Augmented 2nd with Dik Kürdî (B♭ +1 koma) and Nîm Hicâz (C♯ -1 koma).
+  - **4. Hüseyni**: Pastoral folk favorite with Segâh & ascending Eviç.
+  - **5. Saba**: Mystical dawn mode with flattened Saba 4th degree (~ -35¢) and Segâh.
+  - **6. Segâh**: Sacred contemplative mode where Tonic itself is microtonal (B -1 koma).
+  - **7. Karcığar**: Uşşak on Dügâh + Hicaz on Nevâ with Hisâr (E♭ / E -45¢).
+  - **8. Nihavend**: Lyrical minor with subtle Holdrian intonation.
+  - **9. Kürdî**: Modern pop and classical mode with B♭ Kürdî bakiye flat (+9¢).
+  - **10. Bûselik**: Pure Pythagorean 5ths minor scale.
+- **Dual Tuning Frameworks**:
+  - **Authentic Performance (İcra / Sahne)**: Real-world ear-tuned comma values used by virtuoso masters.
+  - **53-Holdrian Comma (Arel-Ezgi Nazariyat)**: Strict Holdrian comma mathematics ($1\text{ koma} \approx 22.64\text{ cents}$).
+  - **Custom User Tuning**: Interactive per-note sliders (-100¢ to +100¢) with Holdrian comma indicators.
+- **Transposable Tonic (Karar Sesi)**: Select any root key (C through B) with instant scale transposition and traditional default Karar reset.
+- **Flawless Portamento Integration**: Glides seamlessly compute start and target microtonal offsets, ensuring smooth portamento transitions between microtuned notes.
+- **Audition Player & Live Gauge**: Includes Karar, Microtone, and Scale audition buttons, plus a live bipolar pitch deflection meter.
+
+### 🌬️ 5. Breath Controller to Modulation Control (EWI & Wind Synth Bridge)
+- **Direct CC Remapping & Mirroring**:
+  - Automatically translates incoming **Breath Data (MIDI CC #2)** or **Channel Aftertouch** into **Modulation Wheel (MIDI CC #1)** for softsynths and VSTs that only support modulation control.
+  - **Routing Modes**:
+    - **Remap / Replace**: Replaces incoming breath with modulation control (swallowing CC #2 so synths don't receive unwanted CC2).
+    - **Mirror / Duplicate**: Emits CC #1 while simultaneously passing through the original CC #2 data.
+- **Wind Instrument Breath Shaping & Calibration**:
+  - **4 Response Curves**: `Linear (1:1)`, `Exponential (Expressive / Soft)`, `Logarithmic (Punchy / Instant Attack)`, and `S-Curve (Sigmoid / Acoustic Reed)`.
+  - **Lip Rest Deadzone (0–30)**: Eliminates mouth resting drift and lip noise on EWI breath sensors.
+  - **Sensitivity / Gain (0.50x – 2.00x)**: Dial in dynamic expression reach.
+  - **Min / Max Output Clamping (0–127)**: Limit modulation depth to prevent harsh filter opening.
+  - **Jitter Filter (0–85% EMA)**: Exponential moving average filter for breath sensor stability.
+  - **Inversion Toggle**: Invert output direction for ducking or reverse sweep patches.
+- **Visual Deck & Test Simulator**:
+  - Real-time dual LED meters: **Incoming Breath (CC #2)** and **Outgoing Modulation (CC #1)**.
+  - Interactive transfer function curve with an active real-time tracking dot.
+  - Built-in **Test Breath Blow (Pulse 0 -> 127 -> 0)** button for testing sound response without blowing.
+
+### 🔍 6. Real-Time MIDI Diagnostics & Scope
 - **Dual Inspectors (MIDI In / MIDI Out)**:
   - Millisecond-accurate timestamps and musical bar/beat positions.
-  - Distinguishes unmodified events (`PASS-THRU`) from transformed/injected events (`[PORTA BEND]`, `[PORTA TARGET]`, `[PORTA STEP]`, `[PORTA OFF]`).
+  - Distinguishes unmodified events (`PASS-THRU`) from transformed/injected events (`[PORTA BEND]`, `[MAKAM TUNE]`, `[PORTA TARGET]`, `[PORTA STEP]`, `[PORTA OFF]`).
   - Raw Hex byte readout, event origin tags, and search/freeze controls.
 - **Master Panic Button**:
   - Instantly issues All-Notes-Off and All-Sound-Off across all 16 MIDI channels with pitch wheel centering.
@@ -59,21 +97,22 @@ In addition to its expressive glide engine, MidiGlide features dual real-time pa
 ┌────────────────────────────────────────────────────────────────────────┐
 │  MIDI GLIDE v0.1          In: 1,420 | Out: 1,845          [ PANIC ]    │
 ├────────────────────────────────────────────────────────────────────────┤
-│  [ Portamento Glide ]  [ MIDI In ]  [ MIDI Out ]                       │
-├──────────────────────────────────┬─────────────────────────────────────┤
-│  GLIDE CONFIGURATION             │  LIVE PORTAMENTO STATUS             │
-│  [x] Enable Portamento Glide     │  Mode: Analogue 14-Bit Continuous   │
-│  Glide Mode: [ Analogue Bend   ] │  Gliding: C4 (60) -> G4 (67)        │
-│  PB Range:   [ +/- 12 Semitones] │  [=================>       ] 65%    │
-│  Curve:      [ RC Exponential  ] │  Pitch Wheel: +4,210 (+6.2 st)      │
-│  Base Time:  [ 250 ms          ] │  [-------|====             ]        │
-│  Phrase Gap: [ 350 ms          ] │  CC65 Switch: ON | CC5 Time: 64     │
-│  [ ] Require CC65 Portamento On  │  Total Injected Events: 425         │
-│  [ ] Legato Only (Overlap)       │                                     │
-│  [x] Scale Speed with CC5        │                                     │
-│  [ Send Pitch Bend RPN (0,0) ]   │                                     │
-│  [ Test Glide Up ] [ Test Down ] │                                     │
-└──────────────────────────────────┴─────────────────────────────────────┘
+│  [ Portamento Glide ]  [ Turkish Makam ]  [ Breath & CC Remap ]  [ MIDI In ]  [ MIDI Out ] │
+├────────────────────────────────────────────────────────────────────────┤
+│  [x] Enable Turkish Makam    Makam: [ 1. Rast Makamı (Rast)         ]  │
+│  Karar (Root): [ G ] [ Default ]   Tuning: [ Authentic Performance  ]  │
+│  Pitch Bend Range: [ +/- 12 Semitones ]   [ Send RPN (0,0) ]           │
+├────────────────────────────────────────────────────────────────────────┤
+│  Rast Makamı (Rast) • Karar: G | Güçlü: Nevâ (D) | Seyir: Çıkıcı       │
+│  [ C ] [ C#] [ D ] [ D#] [ E ] [ F ] [ F#] [ G ] [ G#] [ A ] [ A#] [ B ]│
+│  Rast        Nevâ        Hüseynî     Eviç  Rast        Dügâh     Segâh │
+│   0¢   0¢     0¢    0¢    0¢    0¢   -24¢   0¢    0¢    0¢    0¢   -24¢ │
+│  0.0k 0.0k   0.0k  0.0k  0.0k  0.0k  -1.1k 0.0k  0.0k  0.0k  0.0k -1.1k│
+├────────────────────────────────────────────────────────────────────────┤
+│  [ Play Karar ] [ Play Microtone ] [ Play Makam Scale ] [ Notes Off ]   │
+│  LIVE: Last Note: B3 | Offset: -24.0¢ (-1.06 koma) | Pitch Bend: 8028  │
+│  [--------------------------|====                                    ] │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -132,6 +171,8 @@ Artifacts will be generated in `build/MidiGlide_artefacts/Release/`:
 ## Architecture & Code Map
 
 - [`Source/PortamentoProcessor.h`](Source/PortamentoProcessor.h): Core DSP engine handling MIDI stream transformation, pitch bend generation, and pause gap detection. Allocation-free and lock-free for audio-thread safety.
+- [`Source/MicrotuningProcessor.h`](Source/MicrotuningProcessor.h): Turkish Makam microtonality engine storing scale intervals for 10 major makams, 53-Holdrian & authentic performance tunings, and calculating real-time 14-bit pitch bend offsets.
+- [`Source/MicrotuningTab.h`](Source/MicrotuningTab.h) / [`.cpp`](Source/MicrotuningTab.cpp): Dedicated Turkish Makam microtuning tab featuring interactive 12-key keyboard strips, per-key cents/comma adjustments, theory banner, audition playback, and live pitch deflection gauge.
 - [`Source/PortamentoTab.h`](Source/PortamentoTab.h) / [`.cpp`](Source/PortamentoTab.cpp): Glide configuration UI, bipolar pitch bend meter, and live animation display.
 - [`Source/MidiMonitorTab.h`](Source/MidiMonitorTab.h) / [`.cpp`](Source/MidiMonitorTab.cpp): Real-time MIDI packet table inspector for MIDI In and Out.
 - [`Source/MidiLogQueue.h`](Source/MidiLogQueue.h): Lock-free ring buffer queue decoupling the real-time audio thread from the GUI renderer.

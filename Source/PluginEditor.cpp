@@ -4,16 +4,18 @@
 MidiMonitorAudioProcessorEditor::MidiMonitorAudioProcessorEditor (MidiMonitorAudioProcessor& p)
     : AudioProcessorEditor (&p),
       audioProcessor (p),
+      portamentoTab (p),
+      microtuningTab (p),
+      breathRemapTab (p),
       inMonitorTab (p, TabMode::MidiIn),
-      outMonitorTab (p, TabMode::MidiOut),
-      portamentoTab (p)
+      outMonitorTab (p, TabMode::MidiOut)
 {
     inScratchBuffer.reserve (256);
     outScratchBuffer.reserve (256);
 
-    setSize (920, 580);
+    setSize (960, 600);
     setResizable (true, true);
-    setResizeLimits (740, 440, 1600, 1200);
+    setResizeLimits (760, 480, 1600, 1200);
 
     // Title
     titleLabel.setText ("MIDI GLIDE v0.1", juce::dontSendNotification);
@@ -37,6 +39,8 @@ MidiMonitorAudioProcessorEditor::MidiMonitorAudioProcessorEditor (MidiMonitorAud
     tabs.setTabBarDepth (32);
     tabs.getTabbedButtonBar().setColour (juce::TabbedButtonBar::tabOutlineColourId, juce::Colour (0xff2c313a));
     tabs.addTab ("Portamento Glide",  juce::Colour (0xff181a1f), &portamentoTab, false);
+    tabs.addTab ("Turkish Makam",     juce::Colour (0xff181a1f), &microtuningTab, false);
+    tabs.addTab ("Breath & CC Remap", juce::Colour (0xff181a1f), &breathRemapTab, false);
     tabs.addTab ("MIDI In",           juce::Colour (0xff181a1f), &inMonitorTab, false);
     tabs.addTab ("MIDI Out",          juce::Colour (0xff181a1f), &outMonitorTab, false);
     addAndMakeVisible (tabs);

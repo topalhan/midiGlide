@@ -5,6 +5,8 @@
 #include "PluginProcessor.h"
 #include "MidiMonitorTab.h"
 #include "PortamentoTab.h"
+#include "MicrotuningTab.h"
+#include "BreathRemapTab.h"
 
 class MidiMonitorAudioProcessorEditor : public juce::AudioProcessorEditor,
                                         public juce::Timer
@@ -27,9 +29,11 @@ private:
 
     // Tabbed interface
     juce::TabbedComponent tabs { juce::TabbedButtonBar::TabsAtTop };
+    PortamentoTab portamentoTab;
+    MicrotuningTab microtuningTab;
+    BreathRemapTab breathRemapTab;
     MidiMonitorTab inMonitorTab;
     MidiMonitorTab outMonitorTab;
-    PortamentoTab portamentoTab;
 
     std::vector<MidiMonitor::MidiLogEntry> inScratchBuffer;
     std::vector<MidiMonitor::MidiLogEntry> outScratchBuffer;

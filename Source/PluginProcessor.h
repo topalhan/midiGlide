@@ -3,6 +3,7 @@
 #include <juce_audio_processors/juce_audio_processors.h>
 #include "MidiLogQueue.h"
 #include "PortamentoProcessor.h"
+#include "BreathRemapProcessor.h"
 
 class MidiMonitorAudioProcessor : public juce::AudioProcessor
 {
@@ -39,6 +40,8 @@ public:
     MidiMonitor::MidiLogQueue& getMidiInQueue() noexcept { return midiInQueue; }
     MidiMonitor::MidiLogQueue& getMidiOutQueue() noexcept { return midiOutQueue; }
     MidiMonitor::PortamentoProcessor& getPortamentoProcessor() noexcept { return portamentoProcessor; }
+    MidiMonitor::MicrotuningProcessor& getMicrotuningProcessor() noexcept { return microtuningProcessor; }
+    MidiMonitor::BreathRemapProcessor& getBreathRemapProcessor() noexcept { return breathRemapProcessor; }
 
     void injectMidiMessage (const juce::MidiMessage& msg);
 
@@ -48,6 +51,8 @@ private:
     MidiMonitor::MidiLogQueue midiInQueue;
     MidiMonitor::MidiLogQueue midiOutQueue;
     MidiMonitor::PortamentoProcessor portamentoProcessor;
+    MidiMonitor::MicrotuningProcessor microtuningProcessor;
+    MidiMonitor::BreathRemapProcessor breathRemapProcessor;
     std::atomic<uint64_t> currentSampleCount { 0 };
 
     // Outgoing injection FIFO (from GUI to audio thread, e.g. Panic / All Notes Off)

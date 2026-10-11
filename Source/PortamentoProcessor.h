@@ -3,6 +3,8 @@
 #include <juce_audio_basics/juce_audio_basics.h>
 #include <juce_core/juce_core.h>
 #include "MidiLogQueue.h"
+#include "MicrotuningProcessor.h"
+#include "BreathRemapProcessor.h"
 #include <array>
 #include <atomic>
 #include <vector>
@@ -97,7 +99,16 @@ public:
         liveState.currentStepNote.store (-1);
         liveState.progress.store (0.0f);
         liveState.currentPitchBend.store (0);
+
+        initialGlideOffsetSemitones = 0.0;
+        targetOffsetSemitones = 0.0;
     }
+
+    void setMicrotuningProcessor (MicrotuningProcessor* mt) noexcept { microtuningProcessor = mt; }
+    MicrotuningProcessor* getMicrotuningProcessor() noexcept { return microtuningProcessor; }
+
+    void setBreathRemapProcessor (BreathRemapProcessor* b) noexcept { breathRemapProcessor = b; }
+    BreathRemapProcessor* getBreathRemapProcessor() noexcept { return breathRemapProcessor; }
 
     PortamentoSettings& getSettings() noexcept { return settings; }
     const PortamentoSettings& getSettings() const noexcept { return settings; }
@@ -140,6 +151,24 @@ public:
                 currentCC5 = msg.getControllerValue();
                 liveState.cc5Value.store (currentCC5, std::memory_order_relaxed);
                 addOutputEvent (msg, offset, timeSec, posInfo, outLogQueue, false, "PASS-THRU");
+                continue;
+            }
+
+            // Check Breath / CC Remapper (e.g. Breath CC 2 -> Modulation CC 1)
+            if (breathRemapProcessor != nullptr && breathRemapProcessor->isMatch (msg))
+            {
+                int outVal = breathRemapProcessor->processMidiEvent (msg);
+                int targetCC = breathRemapProcessor->getTargetController();
+                int ch = msg.getChannel();
+                int mode = breathRemapProcessor->getRoutingMode();
+
+                if (mode == static_cast<int>(BreathRoutingMode::MirrorDuplicate))
+                {
+                    addOutputEvent (msg, offset, timeSec, posInfo, outLogQueue, false, "PASS-THRU");
+                }
+
+                auto mappedMsg = juce::MidiMessage::controllerEvent (ch, targetCC, static_cast<uint8_t>(outVal));
+                addOutputEvent (mappedMsg, offset, timeSec, posInfo, outLogQueue, true, "[BREATH->MOD]");
                 continue;
             }
 
@@ -294,10 +323,18 @@ public:
                         }
 
                         // 2. Calculate initial pitch bend offset: target note starts bent so it sounds activeSourceNote's pitch
-                        double initialOffsetSemitones = static_cast<double>(-totalSemitones);
-                        initialOffsetSemitones = std::clamp (initialOffsetSemitones, -static_cast<double>(pbRange), static_cast<double>(pbRange));
+                        double sourceMicro = (microtuningProcessor != nullptr && microtuningProcessor->getSettings().enabled.load (std::memory_order_relaxed))
+                                           ? microtuningProcessor->getSemitonesOffsetForMidiNote (activeSourceNote)
+                                           : 0.0;
+                        double targetMicro = (microtuningProcessor != nullptr && microtuningProcessor->getSettings().enabled.load (std::memory_order_relaxed))
+                                           ? microtuningProcessor->getSemitonesOffsetForMidiNote (activeTargetNote)
+                                           : 0.0;
 
-                        double bendFraction = initialOffsetSemitones / static_cast<double>(pbRange);
+                        targetOffsetSemitones = targetMicro;
+                        initialGlideOffsetSemitones = -static_cast<double>(totalSemitones) + sourceMicro;
+                        initialGlideOffsetSemitones = std::clamp (initialGlideOffsetSemitones, -static_cast<double>(pbRange), static_cast<double>(pbRange));
+
+                        double bendFraction = initialGlideOffsetSemitones / static_cast<double>(pbRange);
                         int initialPitchWheel = 8192 + static_cast<int>(std::round (bendFraction * 8191.0));
                         initialPitchWheel = std::clamp (initialPitchWheel, 0, 16383);
 
@@ -387,9 +424,21 @@ public:
                                     offset, timeSec, posInfo, outLogQueue, false, "PASS-THRU");
                 }
 
-                // Reset any lingering pitch bend
-                addOutputEvent (juce::MidiMessage::pitchWheel (ch, 8192),
-                                offset, timeSec, posInfo, outLogQueue, false, "PASS-THRU");
+                // Calculate target pitch bend with microtuning
+                int targetPitchWheel = 8192;
+                bool hasTuning = false;
+                if (microtuningProcessor != nullptr && microtuningProcessor->getSettings().enabled.load (std::memory_order_relaxed))
+                {
+                    targetPitchWheel = microtuningProcessor->calculatePitchBendForMidiNote (note);
+                    float cents = microtuningProcessor->getCentsForMidiNote (note);
+                    microtuningProcessor->recordNoteTuned (note, cents, targetPitchWheel);
+                    hasTuning = (targetPitchWheel != 8192);
+                }
+
+                // Set pitch bend for target microtuned note before note triggers
+                addOutputEvent (juce::MidiMessage::pitchWheel (ch, targetPitchWheel),
+                                offset, timeSec, posInfo, outLogQueue, hasTuning,
+                                hasTuning ? "[MAKAM TUNE]" : "PASS-THRU");
 
                 soundingNote = note;
                 soundingBaseNote = note;
@@ -405,7 +454,7 @@ public:
                 liveState.targetNote.store (note, std::memory_order_relaxed);
                 liveState.currentStepNote.store (note, std::memory_order_relaxed);
                 liveState.progress.store (1.0f, std::memory_order_relaxed);
-                liveState.currentPitchBend.store (0, std::memory_order_relaxed);
+                liveState.currentPitchBend.store (targetPitchWheel - 8192, std::memory_order_relaxed);
 
                 addOutputEvent (msg, offset, timeSec, posInfo, outLogQueue, false, "PASS-THRU");
                 continue;
@@ -489,10 +538,6 @@ private:
 
         const int bendIntervalSamples = 32; // ~1.3 kHz update rate at 44.1kHz
 
-        int totalSemitones = activeTargetNote - activeSourceNote;
-        double initialOffsetSemitones = static_cast<double>(-totalSemitones);
-        initialOffsetSemitones = std::clamp (initialOffsetSemitones, -static_cast<double>(pbRange), static_cast<double>(pbRange));
-
         for (int s = 0; s < numSamples && isGliding; ++s)
         {
             glideElapsedSamples += 1.0;
@@ -508,8 +553,8 @@ private:
                 t = (1.0 - std::exp (-k * u)) / (1.0 - std::exp (-k));
             }
 
-            // Offset glides from initialOffsetSemitones smoothly toward 0.0
-            double currentOffsetSemitones = initialOffsetSemitones * (1.0 - t);
+            // Offset glides from initialGlideOffsetSemitones smoothly toward targetOffsetSemitones
+            double currentOffsetSemitones = initialGlideOffsetSemitones * (1.0 - t) + targetOffsetSemitones * t;
 
             // Emit pitch bend message periodically or on destination
             if (samplesSinceLastBend >= bendIntervalSamples || u >= 1.0)
@@ -540,15 +585,27 @@ private:
             {
                 double timeSec = static_cast<double>(baseSampleIndex + static_cast<uint64_t>(s)) / currentSampleRate;
 
-                // Ensure pitch bend is precisely reset back to center (0 semitones)
-                addOutputEvent (juce::MidiMessage::pitchWheel (currentChannel, 8192),
-                                s, timeSec, posInfo, outLogQueue, true, "[PORTA RESET]");
+                double bendFraction = targetOffsetSemitones / static_cast<double>(pbRange);
+                bendFraction = std::clamp (bendFraction, -1.0, 1.0);
+                int finalPitchWheel = 8192 + static_cast<int>(std::round (bendFraction * 8191.0));
+                finalPitchWheel = std::clamp (finalPitchWheel, 0, 16383);
+
+                bool hasTuning = (finalPitchWheel != 8192);
+                addOutputEvent (juce::MidiMessage::pitchWheel (currentChannel, finalPitchWheel),
+                                s, timeSec, posInfo, outLogQueue, hasTuning,
+                                hasTuning ? "[MAKAM TUNE]" : "[PORTA RESET]");
+
+                if (microtuningProcessor != nullptr && microtuningProcessor->getSettings().enabled.load (std::memory_order_relaxed))
+                {
+                    float c = microtuningProcessor->getCentsForMidiNote (activeTargetNote);
+                    microtuningProcessor->recordNoteTuned (activeTargetNote, c, finalPitchWheel);
+                }
 
                 isGliding = false;
 
                 liveState.isGliding.store (false, std::memory_order_relaxed);
                 liveState.progress.store (1.0f, std::memory_order_relaxed);
-                liveState.currentPitchBend.store (0, std::memory_order_relaxed);
+                liveState.currentPitchBend.store (finalPitchWheel - 8192, std::memory_order_relaxed);
                 liveState.currentStepNote.store (activeTargetNote, std::memory_order_relaxed);
 
                 break;
@@ -627,8 +684,22 @@ private:
 
                 if (!isGliding)
                 {
+                    int finalPitchWheel = 8192;
+                    bool hasTuning = false;
+                    if (microtuningProcessor != nullptr && microtuningProcessor->getSettings().enabled.load (std::memory_order_relaxed))
+                    {
+                        finalPitchWheel = microtuningProcessor->calculatePitchBendForMidiNote (activeTargetNote);
+                        float c = microtuningProcessor->getCentsForMidiNote (activeTargetNote);
+                        microtuningProcessor->recordNoteTuned (activeTargetNote, c, finalPitchWheel);
+                        hasTuning = (finalPitchWheel != 8192);
+                    }
+                    addOutputEvent (juce::MidiMessage::pitchWheel (currentChannel, finalPitchWheel),
+                                    s, timeSec, posInfo, outLogQueue, hasTuning,
+                                    hasTuning ? "[MAKAM TUNE]" : "[PORTA RESET]");
+
                     liveState.isGliding.store (false, std::memory_order_relaxed);
                     liveState.progress.store (1.0f, std::memory_order_relaxed);
+                    liveState.currentPitchBend.store (finalPitchWheel - 8192, std::memory_order_relaxed);
                 }
             }
         }
@@ -654,6 +725,10 @@ private:
     double glideElapsedSamples = 0.0;
     double glideTotalSamples = 1.0;
     int samplesSinceLastBend = 0;
+    double initialGlideOffsetSemitones = 0.0;
+    double targetOffsetSemitones = 0.0;
+    MicrotuningProcessor* microtuningProcessor = nullptr;
+    BreathRemapProcessor* breathRemapProcessor = nullptr;
 
     // Stepped glissando timing
     double samplesPerStep = 0.0;

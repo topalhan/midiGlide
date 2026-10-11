@@ -43,6 +43,12 @@ target_sources(MidiGlide
         Source/MidiMonitorTab.cpp
         Source/PortamentoTab.h
         Source/PortamentoTab.cpp
+        Source/MicrotuningProcessor.h
+        Source/MicrotuningTab.h
+        Source/MicrotuningTab.cpp
+        Source/BreathRemapProcessor.h
+        Source/BreathRemapTab.h
+        Source/BreathRemapTab.cpp
         Source/PluginEditor.h
         Source/PluginEditor.cpp
 )
@@ -53,6 +59,10 @@ target_compile_definitions(MidiGlide
         JUCE_USE_CURL=0
         JUCE_VST3_CAN_REPLACE_VST2=0
 )
+
+if(MSVC)
+    target_compile_options(MidiGlide PRIVATE /utf-8)
+endif()
 
 target_link_libraries(MidiGlide
     PRIVATE
