@@ -183,6 +183,11 @@ public:
                         physicallyHeldNotes[static_cast<size_t>(note)] = false;
                         if (numPhysicallyHeld > 0) --numPhysicallyHeld;
                     }
+                    else
+                    {
+                        // Ignore redundant duplicate Note Off for key already released
+                        continue;
+                    }
                 }
 
                 if (numPhysicallyHeld == 0)
@@ -236,10 +241,17 @@ public:
                 // Treat Note On with velocity 0 as Note Off
                 if (vel == 0)
                 {
-                    if (note >= 0 && note < 128 && physicallyHeldNotes[static_cast<size_t>(note)])
+                    if (note >= 0 && note < 128)
                     {
-                        physicallyHeldNotes[static_cast<size_t>(note)] = false;
-                        if (numPhysicallyHeld > 0) --numPhysicallyHeld;
+                        if (physicallyHeldNotes[static_cast<size_t>(note)])
+                        {
+                            physicallyHeldNotes[static_cast<size_t>(note)] = false;
+                            if (numPhysicallyHeld > 0) --numPhysicallyHeld;
+                        }
+                        else
+                        {
+                            continue;
+                        }
                     }
                     if (numPhysicallyHeld == 0)
                     {
@@ -255,6 +267,12 @@ public:
                         addOutputEvent (juce::MidiMessage::noteOff (ch, note, (uint8_t)0),
                                         offset, timeSec, posInfo, outLogQueue, false, "PASS-THRU");
                     }
+                    continue;
+                }
+
+                // Ignore redundant duplicate Note On if this note is already physically held
+                if (note >= 0 && note < 128 && physicallyHeldNotes[static_cast<size_t>(note)])
+                {
                     continue;
                 }
 
